@@ -15,7 +15,9 @@
 
 ## Usage
 
+Install cargo/rust via e.g. [rustup](https://rustup.rs/)
 ```sh
+rustup update                   # IDK how old your rust install is but you should probably update it
 cargo install --git https://github.com/MaulingMonkey/mmuhttpd
 mmuhttpd                        # use CWD as your webroot
 mmuhttpd --open some/other/dir  # use another dir as your webroot + open your browser
