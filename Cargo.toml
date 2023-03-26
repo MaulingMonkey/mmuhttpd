@@ -1,0 +1,9 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name                = "mmuhttpd"
+version             = "0.0.0"
+publish             = false
+edition             = "2021"
+
+[dependencies]
