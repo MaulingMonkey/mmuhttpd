@@ -4,6 +4,12 @@
 name                = "mmuhttpd"
 version             = "0.0.0"
 publish             = false
+authors             = ["MaulingMonkey <git@maulingmonkey.com>"]
 edition             = "2021"
+repository          = "https://github.com/MaulingMonkey/mmuhttpd"
+license             = "Apache-2.0 OR MIT"
+readme              = "Readme.md"
+description         = "0 deps 100% monkey HTTP server"
+keywords            = ["http", "httpd", "server"]
 
 [dependencies]
