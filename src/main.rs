@@ -1,6 +1,7 @@
 mod browser;
 mod ext_slice;  use ext_slice::*;
 mod fs;
+mod mime;
 mod response;
 mod settings;   use settings::*;
 
@@ -79,7 +80,9 @@ fn on_connection(settings: &Settings, mut stream: TcpStream) {
     let Ok(file) = std::fs::File::open(file_entry.path()) else { return response::not_found(&mut stream) };
     let Ok(meta) = file.metadata() else { return response::internal_server_error(&mut stream) };
     let len = meta.len();
-    let headers = format!("HTTP/1.0 200 OK\r\nContent-Length: {len}\r\n\r\n"); // TODO: MIME headers etc.
+    let mime = mime::by_path(file_entry.name_lossy());
+    let Some(mime) = mime else { return response::not_found(&mut stream) }; // ban access anything without a mime
+    let headers = format!("HTTP/1.0 200 OK\r\nContent-Length: {len}\r\nContent-Type: {mime}\r\n\r\n");
 
     match method {
         b"HEAD" => {
