@@ -65,10 +65,10 @@ fn on_connection(settings: &Settings, mut stream: TcpStream) {
     let mut file = b"index.html".as_slice();
     if !path.is_empty() {
         let mut dirs = path.split(|ch| *ch == b'/');
+        if dirs.clone().any(|dir| dir.is_empty() || dir.starts_with(b".")) { return response::not_found(&mut stream) } // ban ".", "..", ".git", ".other_hidden_folder"
         if !is_dir { file = dirs.next_back().expect("bug: split should always return at least one element?"); }
 
         for dir in dirs {
-            if [b"".as_slice(), b".", b".."].contains(&dir) { return response::not_found(&mut stream) } // XXX: excessive validation?
             let dir = String::from_utf8_lossy(dir); // XXX: this is awkward, do this earlier
             let Some(entry) = snapshot.by_name(&*dir) else { return response::not_found(&mut stream) };
             let Some(next_snapshot) = settings.cache.read_dir(entry.path()) else { return response::not_found(&mut stream) };
