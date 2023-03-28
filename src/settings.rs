@@ -1,4 +1,5 @@
 use std::net::*;
+use std::io::Write;
 use std::path::*;
 
 pub struct Settings {
@@ -10,6 +11,7 @@ pub struct Settings {
 
 impl Settings {
     pub fn from_env_or_die() -> Self {
+        let mut help = false;
         let mut open = false;
         let mut bind = Option::<IpAddr>::None;
         let mut root = Option::<PathBuf>::None;
@@ -18,6 +20,14 @@ impl Settings {
         let _exe = args.next();
         for arg in args {
             match &*arg.to_string_lossy() {
+                "--help" if help => {}, // already printed
+                "--help" => {
+                    let mut stdout = std::io::stdout().lock();
+                    for line in include_str!("help.txt").trim_end().split('\n').map(|l| l.trim_end()) {
+                        let _ = writeln!(stdout, "{line}");
+                    }
+                    help = true;
+                },
                 "--open"            => open = true,
                 "--no-open"         => open = false,
                 "--allow-all-ipv4" => {
@@ -34,6 +44,8 @@ impl Settings {
                 positional => panic!("expected at most one positional argument - the root directory - but recieved a second, {positional:?}"),
             }
         }
+
+        if help { std::process::exit(0) } // already printed help text
 
         Self {
             open,

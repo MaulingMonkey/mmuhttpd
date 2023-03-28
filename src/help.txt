@@ -1,0 +1,5 @@
+    Usage:
+mmuhttpd                        # use CWD as your webroot
+mmuhttpd --open some/other/dir  # use another dir as your webroot + open your browser
+mmuhttpd --allow-all-ipv4       # allow non-localhost traffic (bind to any/all IPv4 addresses)
+mmuhttpd --allow-all-ipv6       # allow non-localhost traffic (bind to any/all IPv6 addresses)
