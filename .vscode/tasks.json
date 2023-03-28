@@ -27,5 +27,18 @@
             "label":            "cargo build --package mmuhttpd --bin mmuhttpd --release",
             "command":          "cargo build --package mmuhttpd --bin mmuhttpd --release",
         },
+
+
+
+        // website
+        {
+            "label":            "start server",
+            "windows":          { "command": "start \"mmuhttpd•test•server\" target/release/mmuhttpd demo" },
+            "dependsOn":        ["cargo build --package mmuhttpd --bin mmuhttpd --release"],
+        },
+        {
+            "label":            "stop server",
+            "windows":          { "command": "taskkill /fi \"WINDOWTITLE eq mmuhttpd•test•server\"" },
+        },
     ]
 }

@@ -44,5 +44,15 @@
                 "searchMicrosoftSymbolServer": true,
             },
         },
+        // demo
+        {
+            "name":                     "chrome",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "preLaunchTask":            "start server",
+            "postDebugTask":            "stop server",
+            "url":                      "http://127.0.0.99:9001/",
+            "webRoot":                  "${workspaceFolder}/demo",
+        },
     ]
 }
