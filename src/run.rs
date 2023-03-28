@@ -48,6 +48,7 @@ fn on_connection(settings: &Settings, mut stream: TcpStream) {
     let is_dir = path.ends_with(b"/");
     while let &[b'/', ref rest @ ..] = path { path = &rest }
     while let &[ref rest @ .., b'/'] = path { path = &rest }
+    let Ok(path) = core::str::from_utf8(path) else { return response::not_found(&mut stream) }; // path not valid utf8
 
     // XXX: this is a half-baked safety feature: by enumerating the filesystem for existing paths instead of directly
     // passing user-controlled paths to system APIs, we hopefully avoid allowing the user to (ab)use system specific
@@ -57,21 +58,20 @@ fn on_connection(settings: &Settings, mut stream: TcpStream) {
     // This only really helps us out because we're providing a read-only abstraction.  Well, writes would be okay too,
     // but *creating* files with user controlled names wouldn't work with this trick.
     let Some(mut snapshot) = settings.cache.read_dir(&settings.root) else { return response::internal_server_error(&mut stream) };
-    let mut file = b"index.html".as_slice();
+    let mut file = "index.html";
     if !path.is_empty() {
-        let mut dirs = path.split(|ch| *ch == b'/');
-        if dirs.clone().any(|dir| dir.is_empty() || dir.starts_with(b".")) { return response::not_found(&mut stream) } // ban ".", "..", ".git", ".other_hidden_folder"
+        let mut dirs = path.split('/');
+        if dirs.clone().any(|dir| dir.is_empty() || dir.starts_with(".")) { return response::not_found(&mut stream) } // ban ".", "..", ".git", ".other_hidden_folder"
         if !is_dir { file = dirs.next_back().expect("bug: split should always return at least one element?"); }
 
         for dir in dirs {
-            let dir = String::from_utf8_lossy(dir); // XXX: this is awkward, do this earlier
             let Some(entry) = snapshot.by_name(&*dir) else { return response::not_found(&mut stream) };
             let Some(next_snapshot) = settings.cache.read_dir(entry.path()) else { return response::not_found(&mut stream) };
             snapshot = next_snapshot;
         }
     }
 
-    let Some(file_entry) = snapshot.by_name(&*String::from_utf8_lossy(file)) else { return response::not_found(&mut stream) };
+    let Some(file_entry) = snapshot.by_name(file) else { return response::not_found(&mut stream) };
     let Ok(file) = std::fs::File::open(file_entry.path()) else { return response::not_found(&mut stream) };
     let Ok(meta) = file.metadata() else { return response::internal_server_error(&mut stream) };
     let len = meta.len();
