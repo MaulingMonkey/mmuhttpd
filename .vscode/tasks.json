@@ -40,5 +40,13 @@
             "label":            "stop server",
             "windows":          { "command": "taskkill /fi \"WINDOWTITLE eq mmuhttpd•test•server\"" },
         },
+        {
+            "label":            "mount webdav",
+            "windows":          { "command": "net use W: http://127.0.0.99:9001/" },
+        },
+        {
+            "label":            "unmount webdav",
+            "windows":          { "command": "net use W: /delete" },
+        },
     ]
 }

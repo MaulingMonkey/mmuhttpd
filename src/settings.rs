@@ -4,6 +4,7 @@ use std::path::*;
 
 pub struct Settings {
     pub open:   bool,
+    pub webdav: bool,
     pub bind:   IpAddr,
     pub cache:  crate::fs::dir::Cache,
     pub root:   std::path::PathBuf,
@@ -13,6 +14,7 @@ impl Settings {
     pub fn from_env_or_die() -> Self {
         let mut help = false;
         let mut open = false;
+        let webdav = true;
         let mut bind = Option::<IpAddr>::None;
         let mut root = Option::<PathBuf>::None;
 
@@ -49,6 +51,7 @@ impl Settings {
 
         Self {
             open,
+            webdav,
             cache: crate::fs::dir::Cache::new(), // XXX: split off into a "context" type instead of hijacking settings?
             root: root.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_err| PathBuf::from("."))),
 
