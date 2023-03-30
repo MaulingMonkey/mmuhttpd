@@ -12,11 +12,15 @@ pub struct Settings {
 
 impl Settings {
     pub fn from_env_or_die() -> Self {
+        let mut errors = false;
         let mut help = false;
         let mut open = false;
         let webdav = true;
         let mut bind = Option::<IpAddr>::None;
         let mut root = Option::<PathBuf>::None;
+
+        macro_rules! error   { ($($tt:tt)*) => {{ eprintln!($($tt)*); errors = true; }} }
+        macro_rules! warning { ($($tt:tt)*) => {{ eprintln!($($tt)*); }} }
 
         let mut args = std::env::args_os();
         let _exe = args.next();
@@ -35,21 +39,26 @@ impl Settings {
                 "--no-open"         => open = false,
                 "--allow-all-ipv4" => {
                     if let Some(_prev) = bind.replace(IpAddr::V4(Ipv4Addr::UNSPECIFIED)) {
-                        eprintln!("warning: multiple --allow-* flags specified, only the last will apply")
+                        warning!("warning: multiple --allow-* flags specified, only the last will apply");
                     }
                 },
                 "--allow-all-ipv6" => {
                     if let Some(_prev) = bind.replace(IpAddr::V6(Ipv6Addr::UNSPECIFIED)) {
-                        eprintln!("warning: multiple --allow-* flags specified, only the last will apply")
+                        warning!("warning: multiple --allow-* flags specified, only the last will apply");
                     }
                 },
-                flag if flag.starts_with("--") => panic!("unrecognized flag {flag:?}"),
+                flag if flag.starts_with("--") => error!("unrecognized flag {flag:?}"),
 
-                _positional if root.is_none() => root = Some(PathBuf::from(arg)),
-                positional => panic!("expected at most one positional argument - the root directory - but recieved a second, {positional:?}"),
+                _positional_lossy if root.is_none() => {
+                    let path = PathBuf::from(arg);
+                    if !path.is_dir() { error!("error: `{}` is not a directory", path.display()) }
+                    root = Some(path);
+                },
+                positional => error!("error: expected at most one positional argument - the root directory - but recieved a second, {positional:?}"),
             }
         }
 
+        if errors { std::process::exit(1) }
         if help { std::process::exit(0) } // already printed help text
 
         Self {
