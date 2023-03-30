@@ -15,7 +15,10 @@ pub mod dir {
         pub fn new() -> Self { Default::default() }
 
         pub fn read_dir(&self, path: impl AsRef<Path> + Into<PathBuf>) -> Option<Arc<Snapshot>> { // XXX: this is a little awkward
-            let modified = std::fs::metadata(path.as_ref()).ok()?.modified().ok()?; // XXX
+            let meta = std::fs::metadata(path.as_ref()).ok()?;
+            let modified = meta.modified().ok()?; // XXX
+            let created = meta.created().unwrap_or(modified);
+
             let mut snapshots = self.snapshots.lock().expect("bug: Mutex poisoned");
             if let Some(snapshot) = snapshots.get(path.as_ref()) {
                 if modified == snapshot.modified {
@@ -27,7 +30,7 @@ pub mod dir {
             // • no sense having multiple threads reading the same dir.
             // • might be better to modify V={Arc<Snapshot> → Mutex<Option<Arc<Snapshot>>>} and drop the overall lock
             // • OTOH this isn't meant to be a maximum performance production httpd
-            let snapshot = Arc::new(Snapshot::new(modified, path.as_ref()).ok()?); // XXX
+            let snapshot = Arc::new(Snapshot::new(created, modified, path.as_ref()).ok()?); // XXX
 
             snapshots.insert(path.into(), Arc::clone(&snapshot));
             Some(snapshot)
@@ -37,6 +40,7 @@ pub mod dir {
 
 
     pub struct Snapshot {
+        created:    SystemTime,
         modified:   SystemTime,
         path:       PathBuf,
         entries:    Vec<Entry>,
@@ -46,6 +50,7 @@ pub mod dir {
     impl Default for Snapshot {
         fn default() -> Self {
             Self {
+                created:    SystemTime::UNIX_EPOCH,
                 modified:   SystemTime::UNIX_EPOCH,
                 path:       Default::default(),
                 entries:    Default::default(),
@@ -55,9 +60,9 @@ pub mod dir {
     }
 
     impl Snapshot {
-        pub fn new(modified: SystemTime, path: impl Into<PathBuf>) -> std::io::Result<Self> {
+        pub fn new(created: SystemTime, modified: SystemTime, path: impl Into<PathBuf>) -> std::io::Result<Self> {
             let path = path.into();
-            let mut snapshot = Self { modified, path, .. Default::default() };
+            let mut snapshot = Self { created, modified, path, .. Default::default() };
             for e in std::fs::read_dir(&snapshot.path)? {
                 let e : Entry = e?.into();
                 snapshot.by_name.insert(e.name_os().into(), snapshot.entries.len());
@@ -66,6 +71,8 @@ pub mod dir {
             Ok(snapshot)
         }
 
+        pub fn created(&self) -> SystemTime { self.created }
+        pub fn modified(&self) -> SystemTime { self.modified }
         pub fn path(&self) -> &Path { self.path.as_path() }
 
         pub fn by_name<'e>(&'e self, name: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'e Entry> {

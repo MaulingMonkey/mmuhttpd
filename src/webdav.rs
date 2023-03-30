@@ -17,13 +17,13 @@ pub fn respond_propfind_dir(xml: &mut impl Write, settings: &crate::Settings, ro
         writeln!(xml, r#"    <href>{root}</href>"#)?;
         writeln!(xml, r#"    <propstat>"#)?;
         writeln!(xml, r#"      <prop>"#)?;
-        //writeln!(xml, r#"        <creationdate>1997-12-01T18:27:21-08:00</creationdate>"#)?;
         writeln!(xml, r#"        <displayname>{}</displayname>"#, dir.path().file_name().map_or("Untitled".into(), |os| os.to_string_lossy()))?;
-        //writeln!(xml, r#"        <getcontentlength>9001</getcontentlength>"#)?;
-        //writeln!(xml, r#"        <getcontenttype>text/html</getcontenttype>"#)?;
-        //writeln!(xml, r#"        <getetag>"etag"</getetag>"#)?;
-        //writeln!(xml, r#"        <getlastmodified>Mon, 12 Jan 1998 09:25:56 GMT<getlastmodified>"#)?;
         writeln!(xml, r#"        <resourcetype><collection/></resourcetype>"#)?;
+
+        // `dir` gets quite unhappy without creation + modification timestamps, so always provide both
+        writeln!(xml, r#"        <creationdate>{}</creationdate>"#,         DateTimeUTC::try_from(dir.created ()).unwrap_or_default().creationdate_style()      )?;
+        writeln!(xml, r#"        <getlastmodified>{}</getlastmodified>"#,   DateTimeUTC::try_from(dir.modified()).unwrap_or_default().getlastmodified_style()   )?;
+
         //writeln!(xml, r#"        <supportedlock>"#)?;
         //writeln!(xml, r#"          <lockentry><lockscope><exclusive/></lockscope><locktype><write/></locktype></lockentry>"#)?;
         //writeln!(xml, r#"          <lockentry><lockscope><shared/></lockscope><locktype><write/></locktype></lockentry>"#)?;
@@ -46,15 +46,14 @@ pub fn respond_propfind_dir(xml: &mut impl Write, settings: &crate::Settings, ro
                     writeln!(xml, r#"      <prop>"#)?;
                     writeln!(xml, r#"        <displayname>{name}</displayname>"#)?;
                     writeln!(xml, r#"        <resourcetype/>"#)?;
-                    if let Ok(meta) = e.path().metadata() {
-                        writeln!(xml, r#"        <getcontentlength>{}</getcontentlength>"#, meta.len())?;
-                        if let Ok(Ok(created)) = meta.created().map(|t| DateTimeUTC::try_from(t)) {
-                            writeln!(xml, r#"        <creationdate>{}</creationdate>"#, created.creationdate_style())?;
-                        }
-                        if let Ok(Ok(modified)) = meta.modified().map(|t| DateTimeUTC::try_from(t)) {
-                            writeln!(xml, r#"        <getlastmodified>{}</getlastmodified>"#, modified.getlastmodified_style())?;
-                        }
-                    }
+
+                    // `dir` gets quite unhappy without creation + modification timestamps, so always provide both
+                    let meta = e.path().metadata().ok();
+                    let meta = meta.as_ref();
+                    writeln!(xml, r#"        <getcontentlength>{}</getcontentlength>"#, meta.map_or(0, |m| m.len()))?;
+                    writeln!(xml, r#"        <creationdate>{}</creationdate>"#,         meta.and_then(|m| m.created ().ok()).and_then(|t| DateTimeUTC::try_from(t).ok()).unwrap_or_default().creationdate_style()       )?;
+                    writeln!(xml, r#"        <getlastmodified>{}</getlastmodified>"#,   meta.and_then(|m| m.modified().ok()).and_then(|t| DateTimeUTC::try_from(t).ok()).unwrap_or_default().getlastmodified_style()    )?;
+
                     //writeln!(xml, r#"        <getcontenttype>text/html</getcontenttype>"#)?;
                     //writeln!(xml, r#"        <getetag>"etag"</getetag>"#)?;
                     //writeln!(xml, r#"        <supportedlock>"#)?;
@@ -83,6 +82,14 @@ pub fn respond_propfind_dir(xml: &mut impl Write, settings: &crate::Settings, ro
     pub minute:     u8, // 0 ..= 59
     pub second:     u8, // 0 ..= 60
     dow:            u8, // 0 ..= 6 (0 = Thursday)
+}
+
+impl DateTimeUTC {
+    pub const UNIX_EPOCH : Self = Self { year: 1970, month_no: 1, day_no: 1, hour: 0, minute: 0, second: 0, dow: 0 };
+}
+
+impl Default for DateTimeUTC {
+    fn default() -> Self { Self::UNIX_EPOCH }
 }
 
 impl DateTimeUTC {
@@ -162,6 +169,10 @@ const fn days_in_year(year: u32) -> u64 { if is_leap_year(year) { 366 } else { 3
     let epoch = DateTimeUTC::from_seconds_since_epoch(0);
     assert_eq!("1970-01-01T00:00:00-00:00",     epoch.creationdate_style().to_string());
     assert_eq!("Thu, 1 Jan 1970 00:00:00 GMT",  epoch.getlastmodified_style().to_string());
+
+    let t1 = DateTimeUTC::from_seconds_since_epoch(1680139175);
+    assert_eq!("2023-03-30T01:19:35-00:00",     t1.creationdate_style().to_string());
+    assert_eq!("Thu, 30 Mar 2023 01:19:35 GMT", t1.getlastmodified_style().to_string());
 }
 
 #[test] fn check_leap_year_handling() {
