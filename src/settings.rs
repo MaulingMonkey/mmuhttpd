@@ -22,23 +22,26 @@ impl Settings {
         let _exe = args.next();
         for arg in args {
             match &*arg.to_string_lossy() {
-                "--help" if help => {}, // already printed
                 "--help" => {
-                    let mut stdout = std::io::stdout().lock();
-                    for line in include_str!("help.txt").trim_end().split('\n').map(|l| l.trim_end()) {
-                        let _ = writeln!(stdout, "{line}");
+                    if !help {
+                        help = true;
+                        let mut stdout = std::io::stdout().lock();
+                        for line in include_str!("help.txt").trim_end().split('\n').map(|l| l.trim_end()) {
+                            let _ = writeln!(stdout, "{line}");
+                        }
                     }
-                    help = true;
                 },
                 "--open"            => open = true,
                 "--no-open"         => open = false,
                 "--allow-all-ipv4" => {
-                    if let Some(_prev) = bind { eprintln!("warning: multiple --allow-* flags specified, only the last will apply") }
-                    bind = Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+                    if let Some(_prev) = bind.replace(IpAddr::V4(Ipv4Addr::UNSPECIFIED)) {
+                        eprintln!("warning: multiple --allow-* flags specified, only the last will apply")
+                    }
                 },
                 "--allow-all-ipv6" => {
-                    if let Some(_prev) = bind { eprintln!("warning: multiple --allow-* flags specified, only the last will apply") }
-                    bind = Some(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
+                    if let Some(_prev) = bind.replace(IpAddr::V6(Ipv6Addr::UNSPECIFIED)) {
+                        eprintln!("warning: multiple --allow-* flags specified, only the last will apply")
+                    }
                 },
                 flag if flag.starts_with("--") => panic!("unrecognized flag {flag:?}"),
 
