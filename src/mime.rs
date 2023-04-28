@@ -15,6 +15,7 @@ pub fn by_extension(ext: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'static str> 
         // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
         // https://www.iana.org/assignments/media-types/media-types.xhtml#audio
 
+        // Text
         "html" | "htm"  => "text/html",
         "css"           => "text/css",
         "mjs" | "js"    => "text/javascript",
@@ -27,6 +28,7 @@ pub fn by_extension(ext: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'static str> 
         "xml"           => "application/xml",
         "rss"           => "application/atom+xml",
 
+        // Images
         "bmp"           => "image/bmp",
         "gif"           => "image/gif",
         "ico"           => "image/vnd.microsoft.icon",
@@ -35,12 +37,14 @@ pub fn by_extension(ext: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'static str> 
         "svg"           => "image/svg+xml",
         "tif" | "tiff"  => "image/tiff",
 
+        // Fonts
         "otf"           => "font/otf",
         "sfnt"          => "font/sfnt",
         "ttf"           => "font/ttf",
         "woff"          => "font/woff",
         "woff2"         => "font/woff2",
 
+        // Audio/Video
         "mid" | "midi"  => "audio/midi",
         "mp3"           => "audio/mpeg",
         "mp4"           => "video/mp4",
@@ -52,10 +56,12 @@ pub fn by_extension(ext: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'static str> 
         "weba"          => "audio/webm",
         "webm"          => "video/webm",
 
+        // Binary/Executable
         "jar"           => "application/java-archive",
         "pdf"           => "application/pdf",
         "wasm"          => "application/wasm",
 
+        // Container/Compression
         "7z"            => "application/x-7z-compressed",
         "bz"            => "application/x-bzip",
         "bz2"           => "application/x-bzip2",
@@ -64,6 +70,7 @@ pub fn by_extension(ext: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'static str> 
         "rar"           => "application/vnd.rar",
         "zip"           => "application/zip",
 
+        // Misc.
         "bin"           => "application/octet-stream", // or other misc. binary data
 
         _               => return None
