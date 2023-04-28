@@ -18,6 +18,8 @@ pub fn by_extension(ext: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'static str> 
         "html" | "htm"  => "text/html",
         "css"           => "text/css",
         "mjs" | "js"    => "text/javascript",
+        "ts"            => "application/typescript", // matching npm - alternatively, "text/typescript" is sometimes used
+        "map"           => "application/json", // source maps
         "csv"           => "text/csv",
         "txt"           => "text/plain",
         "json"          => "application/json",
