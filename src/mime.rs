@@ -10,7 +10,7 @@ pub fn by_path(path: &(impl AsRef<Path> + ?Sized)) -> Option<&'static str> {
 pub fn by_extension(ext: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'static str> {
     let ext = ext.as_ref();
     let ext = ext.to_str()?;
-    let ext = if ext.starts_with(".") { &ext[1..] } else { ext };
+    let ext = ext.strip_prefix(".").unwrap_or(ext);
     Some(match ext {
         // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
         // https://www.iana.org/assignments/media-types/media-types.xhtml#audio
