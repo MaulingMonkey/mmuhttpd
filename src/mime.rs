@@ -27,6 +27,7 @@ pub fn by_extension(ext: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'static str> 
         "xhtml"         => "application/xhtml+xml",
         "xml"           => "application/xml",
         "rss"           => "application/atom+xml",
+        "rs"            => "text/plain",
 
         // Images
         "bmp"           => "image/bmp",
