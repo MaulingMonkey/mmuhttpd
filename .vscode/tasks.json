@@ -27,6 +27,10 @@
             "label":            "cargo build --package mmuhttpd --bin mmuhttpd --release",
             "command":          "cargo build --package mmuhttpd --bin mmuhttpd --release",
         },
+        {
+            "label":            "cargo install --locked --path .",
+            "command":          "cargo install --locked --path .",
+        },
 
 
 
