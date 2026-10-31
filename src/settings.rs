@@ -1,5 +1,4 @@
 use std::net::*;
-use std::io::Write;
 use std::num::NonZeroU16;
 use std::path::*;
 
@@ -29,15 +28,7 @@ impl Settings {
         let _exe = args.next();
         while let Some(arg) = args.next() {
             match &*arg.to_string_lossy() {
-                "--help" => {
-                    if !help {
-                        help = true;
-                        let mut stdout = std::io::stdout().lock();
-                        for line in include_str!("help.txt").trim_end().split('\n').map(|l| l.trim_end()) {
-                            let _ = writeln!(stdout, "{line}");
-                        }
-                    }
-                },
+                "--help"            => help = true,
                 "--open"            => open = true,
                 "--no-open"         => open = false,
                 "--allow-all-ipv4" => {
@@ -66,6 +57,7 @@ impl Settings {
             }
         }
 
+        if help { println!("{}", include_str!("help.txt")) }
         if errors { std::process::exit(1) }
         if help { std::process::exit(0) } // already printed help text
 
