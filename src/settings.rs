@@ -57,7 +57,7 @@ impl Settings {
             }
         }
 
-        if help { println!("{}", include_str!("help.txt")) }
+        if help { println!("{}", include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/docs/usage.txt"))) }
         if errors { std::process::exit(1) }
         if help { std::process::exit(0) } // already printed help text
 
