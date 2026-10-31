@@ -1,11 +1,13 @@
 use std::net::*;
 use std::io::Write;
+use std::num::NonZeroU16;
 use std::path::*;
 
 pub struct Settings {
     pub open:   bool,
     pub webdav: bool,
     pub addr:   IpAddr,
+    pub port:   Option<NonZeroU16>,
     pub cache:  crate::fs::dir::Cache,
     pub root:   std::path::PathBuf,
 }
@@ -17,6 +19,7 @@ impl Settings {
         let mut open = false;
         let webdav = true;
         let mut addr = Option::<IpAddr>::None;
+        let mut port = Option::<NonZeroU16>::None;
         let mut root = Option::<PathBuf>::None;
 
         macro_rules! error   { ($($tt:tt)*) => {{ eprintln!($($tt)*); errors = true; }} }
@@ -24,7 +27,7 @@ impl Settings {
 
         let mut args = std::env::args_os();
         let _exe = args.next();
-        for arg in args {
+        while let Some(arg) = args.next() {
             match &*arg.to_string_lossy() {
                 "--help" => {
                     if !help {
@@ -46,6 +49,11 @@ impl Settings {
                     if let Some(_prev) = addr.replace(IpAddr::V6(Ipv6Addr::UNSPECIFIED)) {
                         warning!("warning: multiple --allow-* flags specified, only the last will apply");
                     }
+                },
+                "--port" => {
+                    let Some(n) = args.next() else { error!("error: expected port number after --port"); continue };
+                    let Some(n) = n.to_str().and_then(|s| s.parse::<NonZeroU16>().ok()) else { error!("error: expected a port number after --port, got {n:?} instead"); continue };
+                    if let Some(_prev) = port.replace(n) { warning!("warning: multiple --port [n] flags specified, only the last will apply") }
                 },
                 flag if flag.starts_with("--") => error!("unrecognized flag {flag:?}"),
 
@@ -77,6 +85,7 @@ impl Settings {
             //  127.0.0.x   (linux)
             //  127.x.y.z   (windows / https://www.rfc-editor.org/rfc/rfc1122 )
             addr: addr.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(127, 0, 0, 99))),
+            port,
         }
     }
 }
