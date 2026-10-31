@@ -12,15 +12,15 @@ pub fn run() {
     let listener = loop {
         port += 1;
         assert!(port <= 9999, "cannot open a TcpListener on any port between 9000 ..= 9999");
-        if let Ok(l) = TcpListener::bind((settings.bind, port)) { break l }
+        if let Ok(l) = TcpListener::bind((settings.addr, port)) { break l }
     };
     let url = format!("http://{}/", SocketAddr::from((
-        if !settings.bind.is_unspecified()  { settings.bind }
-        else if settings.bind.is_ipv6()     { IpAddr::V6(Ipv6Addr::LOCALHOST) }
+        if !settings.addr.is_unspecified()  { settings.addr }
+        else if settings.addr.is_ipv6()     { IpAddr::V6(Ipv6Addr::LOCALHOST) }
         else                                { IpAddr::V4(Ipv4Addr::LOCALHOST) }
     , port)));
 
-    println!("listening on {}, open {url} to view", SocketAddr::from((settings.bind, port)));
+    println!("listening on {}, open {url} to view", SocketAddr::from((settings.addr, port)));
     if settings.open { browser::open_url(&url); }
 
     for connection in listener.incoming() {

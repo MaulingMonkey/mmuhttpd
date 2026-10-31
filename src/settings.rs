@@ -5,7 +5,7 @@ use std::path::*;
 pub struct Settings {
     pub open:   bool,
     pub webdav: bool,
-    pub bind:   IpAddr,
+    pub addr:   IpAddr,
     pub cache:  crate::fs::dir::Cache,
     pub root:   std::path::PathBuf,
 }
@@ -16,7 +16,7 @@ impl Settings {
         let mut help = false;
         let mut open = false;
         let webdav = true;
-        let mut bind = Option::<IpAddr>::None;
+        let mut addr = Option::<IpAddr>::None;
         let mut root = Option::<PathBuf>::None;
 
         macro_rules! error   { ($($tt:tt)*) => {{ eprintln!($($tt)*); errors = true; }} }
@@ -38,12 +38,12 @@ impl Settings {
                 "--open"            => open = true,
                 "--no-open"         => open = false,
                 "--allow-all-ipv4" => {
-                    if let Some(_prev) = bind.replace(IpAddr::V4(Ipv4Addr::UNSPECIFIED)) {
+                    if let Some(_prev) = addr.replace(IpAddr::V4(Ipv4Addr::UNSPECIFIED)) {
                         warning!("warning: multiple --allow-* flags specified, only the last will apply");
                     }
                 },
                 "--allow-all-ipv6" => {
-                    if let Some(_prev) = bind.replace(IpAddr::V6(Ipv6Addr::UNSPECIFIED)) {
+                    if let Some(_prev) = addr.replace(IpAddr::V6(Ipv6Addr::UNSPECIFIED)) {
                         warning!("warning: multiple --allow-* flags specified, only the last will apply");
                     }
                 },
@@ -76,7 +76,7 @@ impl Settings {
             //  ::1         (ipv6)
             //  127.0.0.x   (linux)
             //  127.x.y.z   (windows / https://www.rfc-editor.org/rfc/rfc1122 )
-            bind: bind.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(127, 0, 0, 99))),
+            addr: addr.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(127, 0, 0, 99))),
         }
     }
 }
