@@ -62,8 +62,42 @@ fn on_connection(settings: &Settings, mut stream: TcpStream) {
 
     // TODO: escape hatches for magic paths (keepalive requests?)
 
-    if path.find("//").is_some() { return response::not_found(&mut stream) } // XXX: excessive validation?
-    if path.find("\\").is_some() { return response::not_found(&mut stream) } // XXX: excessive validation?
+    if path.find("//").is_some() { return response::not_found(&mut stream) }
+    if path.find("\\").is_some() { return response::not_found(&mut stream) }
+
+    // urldecode
+    let mut dst = String::new();
+    let path = {
+        let mut src = path.chars();
+        while let Some(ch) = src.next() {
+            match ch {
+                '%' => {
+                    // We reject as a bad request:
+                    //  - Partial urlencoded characters (e.g. "%" or "%2")
+                    //  - Invalid urlencoded characters (e.g. "%!!" doesn't use hex characters)
+                    //  - Path separators               (e.g. "%2F" which is "/")
+                    //  - Anything that's not from the allowed reserved characters list
+                    let Some(a) = src.next().and_then(hex2n) else { return response::bad_request(&mut stream) };
+                    let Some(b) = src.next().and_then(hex2n) else { return response::bad_request(&mut stream) };
+                    let ab = ((a << 4) | b) as u8;
+                    let allowed_reserved = b" !#$&'()*+,:;=?@[]"; // intentionally omitted: '/'
+                    if !allowed_reserved.contains(&ab) { return response::bad_request(&mut stream) }
+                    dst.push(char::from(ab));
+
+                    fn hex2n(ch: char) -> Option<u32> {
+                        Some(match ch {
+                            '0' ..= '9' => u32::from(ch) - u32::from(b'0'),
+                            'a' ..= 'f' => u32::from(ch) - u32::from(b'a') + 10,
+                            'A' ..= 'F' => u32::from(ch) - u32::from(b'A') + 10,
+                            _           => return None,
+                        })
+                    }
+                },
+                _ => dst.push(ch),
+            }
+        }
+        &*dst
+    };
     let is_dir = path.ends_with("/");
     let trimmed_path = path.trim_matches('/');
 
