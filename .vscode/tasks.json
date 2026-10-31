@@ -38,6 +38,7 @@
         {
             "label":            "start server",
             "windows":          { "command": "start \"mmuhttpd•test•server\" target/release/mmuhttpd demo" },
+            "linux":            { "command": "target/release/mmuhttpd demo" },
             "dependsOn":        ["cargo build --package mmuhttpd --bin mmuhttpd --release"],
         },
         {
