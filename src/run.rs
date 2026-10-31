@@ -8,8 +8,12 @@ use std::net::*;
 pub fn run() {
     let settings = &*Box::leak(Box::new(Settings::from_env_or_die()));
 
-    let listener = TcpListener::bind((settings.bind, 0)).expect("unable to open TcpListener");
-    let port = listener.local_addr().expect("unable to determine TcpListener port").port();
+    let mut port = 9000;
+    let listener = loop {
+        port += 1;
+        assert!(port <= 9999, "cannot open a TcpListener on any port between 9000 ..= 9999");
+        if let Ok(l) = TcpListener::bind((settings.bind, port)) { break l }
+    };
     let url = format!("http://{}/", SocketAddr::from((
         if !settings.bind.is_unspecified()  { settings.bind }
         else if settings.bind.is_ipv6()     { IpAddr::V6(Ipv6Addr::LOCALHOST) }
