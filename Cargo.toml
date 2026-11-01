@@ -2,8 +2,7 @@
 
 [package]
 name                = "mmuhttpd"
-version             = "0.0.0"
-publish             = false
+version             = "0.0.0-0000-00-00"
 authors             = ["MaulingMonkey <git@maulingmonkey.com>"]
 edition             = "2021"
 repository          = "https://github.com/MaulingMonkey/mmuhttpd"

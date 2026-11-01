@@ -1,12 +1,1 @@
-#![forbid(unsafe_op_in_unsafe_fn)]
-
-mod browser;
-mod ext_slice;  use ext_slice::*;
-mod fs;
-mod mime;
-mod response;
-mod run;
-mod settings;   use settings::*;
-mod webdav;
-
-fn main() { run::run() }
+fn main() { const { panic!("reserved crates.io name: currently only available through https://github.com/MaulingMonkey/mmuhttpd") } }
