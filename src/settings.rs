@@ -106,9 +106,7 @@ unsafe fn parse_systemd_env_vars() -> Result<Vec<ManuallyDrop<TcpListener>>, ()>
     let fds = fds.parse::<usize>().map_err(|err| eprintln!("error: could not parse ${{LISTEN_FDS}} as a usize: {err}"))?;
     if fds == 0 { return Err(eprintln!("error: ${{LISTEN_FDS}} cannot be 0")) }
 
-    if let Some(_fdnames) = std::env::var_os("LISTEN_FDNAMES") {
-        // ...TODO: name fds?
-    }
+    //dbg!(std::env::var_os("LISTEN_FDNAMES")); // Some("mmuhttpd.socket[:...]")
 
     Ok((3..).take(fds).map(|fd| ManuallyDrop::new(unsafe { TcpListener::from_raw_fd(fd) })).collect::<Vec<_>>())
 }
