@@ -1,7 +1,6 @@
 use std::mem::ManuallyDrop;
 use std::net::*;
 use std::num::NonZeroU16;
-use std::os::fd::FromRawFd;
 use std::path::*;
 
 pub struct Settings {
@@ -16,12 +15,13 @@ pub struct Settings {
 
 impl Settings {
     /// ## Safety
-    /// - This assumes it can take ownership of fds 3 .. ${LISTEN_FDS}+3 if `--systemd` was passed
+    /// Call this only once, and early!
+    ///
+    /// - **Linux:** This assumes it can take ownership of fds 3 .. ${LISTEN_FDS}+3 if ${LISTEN_PID} == std::process::id()
     pub unsafe fn from_env_or_die() -> Self {
         let mut errors = false;
         let mut help = false;
         let mut open = false;
-        let mut systemd = false;
         let webdav = true;
         let mut addrs = Vec::new();
         let mut port = Option::<NonZeroU16>::None;
@@ -45,7 +45,6 @@ impl Settings {
                     let Some(n) = n.to_str().and_then(|s| s.parse::<NonZeroU16>().ok()) else { error!("error: expected a port number after --port, got {n:?} instead"); continue };
                     if let Some(_prev) = port.replace(n) { warning!("warning: multiple --port [n] flags specified, only the last will apply") }
                 },
-                "--systemd" => systemd = true,
                 flag if flag.starts_with("--") => error!("unrecognized flag {flag:?}"),
 
                 _positional_lossy if root.is_none() => {
@@ -57,10 +56,9 @@ impl Settings {
             }
         }
 
-        if systemd {
-            match unsafe { parse_systemd_env_vars() } { Ok(l) => listen = l, Err(()) => errors = true }
-        } else if std::env::var_os("LISTEN_PID").is_some() {
-            warning!("warning: --systemd not specified but ${{LISTEN_PID}} was set");
+        match unsafe { parse_systemd_env_vars() } {
+            Ok(l)   => listen = l,
+            Err(()) => errors = true,
         }
 
         if help { println!("{}", include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/docs/usage.txt"))) }
@@ -93,9 +91,18 @@ impl Settings {
 }
 
 /// ## Safety
-/// - This assumes it can take ownership of fds 3 .. ${LISTEN_FDS}+3 if `--systemd` was passed
+/// - This assumes it can take ownership of fds 3 .. ${LISTEN_FDS}+3 if ${LISTEN_PID} == std::process::id()
 unsafe fn parse_systemd_env_vars() -> Result<Vec<ManuallyDrop<TcpListener>>, ()> {
-    let listen_pid = std::env::var_os("LISTEN_PID").ok_or_else(|| eprintln!("error: specified --systemd, but ${{LISTEN_PID}} was not set"))?;
+    unsafe { os_parse_systemd_env_vars() }
+}
+
+#[cfg(not(target_os = "linux"))] unsafe fn os_parse_systemd_env_vars() -> Result<Vec<ManuallyDrop<TcpListener>>, ()> { Ok(Vec::new()) }
+#[cfg(    target_os = "linux" )] unsafe fn os_parse_systemd_env_vars() -> Result<Vec<ManuallyDrop<TcpListener>>, ()> {
+    use crate::libc;
+    use std::os::fd::FromRawFd as _;
+    use core::ptr::NonNull;
+
+    let Some(listen_pid) = std::env::var_os("LISTEN_PID") else { return Ok(Vec::new()) };
     let listen_pid = listen_pid.to_str().ok_or_else(|| eprintln!("error: could not parse ${{LISTEN_PID}} as a u32: invalid UTF-8"))?;
     let listen_pid = listen_pid.parse::<u32>().map_err(|err| eprintln!("error: could not parse ${{LISTEN_PID}} as a u32: {err}"))?;
     let actual_pid = std::process::id();
@@ -106,7 +113,52 @@ unsafe fn parse_systemd_env_vars() -> Result<Vec<ManuallyDrop<TcpListener>>, ()>
     let fds = fds.parse::<usize>().map_err(|err| eprintln!("error: could not parse ${{LISTEN_FDS}} as a usize: {err}"))?;
     if fds == 0 { return Err(eprintln!("error: ${{LISTEN_FDS}} cannot be 0")) }
 
-    //dbg!(std::env::var_os("LISTEN_FDNAMES")); // Some("mmuhttpd.socket[:...]")
+    let fdnames = std::env::var_os("LISTEN_FDNAMES").unwrap_or_default(); // "mmuhttpd.socket[:...]"
+    let lossy_fdnames = fdnames.to_string_lossy();
+    let lossy_fdnames = if lossy_fdnames.is_empty() { Vec::new() } else { lossy_fdnames.split(':').collect::<Vec<_>>() };
 
-    Ok((3..).take(fds).map(|fd| ManuallyDrop::new(unsafe { TcpListener::from_raw_fd(fd) })).collect::<Vec<_>>())
+    let fds = (3..).take(fds);
+    let mut errors = false;
+
+    // Sanity check all fds (e.g. ensure they're meant to be TcpListeners)
+    for (fd, name) in fds.clone().zip(lossy_fdnames.iter().copied().chain(core::iter::repeat("???"))) {
+        use libc::*;
+
+        let mut ty : core::ffi::c_int = 0;
+        let mut ty_len = core::mem::size_of_val(&ty) as _;
+        match unsafe { getsockopt(fd, SOL_SOCKET, SO_TYPE, NonNull::new(&mut ty).map(|p| p.cast()), &mut ty_len) } {
+            0 => {
+                assert_eq!(ty_len as usize, core::mem::size_of_val(&ty));
+                match ty {
+                    SOCK_STREAM     => {}, // expected
+                    SOCK_DGRAM      => { eprintln!("error: fd {fd} {name:?}: expected a SOCK_STREAM ({SOCK_STREAM}, TCP), not a SOCK_DGRAM ({ty}, UDP)");       errors = true; },
+                    SOCK_SEQPACKET  => { eprintln!("error: fd {fd} {name:?}: expected a SOCK_STREAM ({SOCK_STREAM}, TCP), not a SOCK_SEQPACKET ({ty}, ???)");   errors = true; },
+                    SOCK_RAW        => { eprintln!("error: fd {fd} {name:?}: expected a SOCK_STREAM ({SOCK_STREAM}, TCP), not a SOCK_RAW ({ty}, ???)");         errors = true; },
+                    _other          => { eprintln!("error: fd {fd} {name:?}: expected a SOCK_STREAM ({SOCK_STREAM}, TCP), not a SOCK_??? ({ty}, ???)");         errors = true; },
+                }
+            },
+            -1  => { eprintln!("error: getsockopt({fd} {name:?}, SOL_SOCKET, SO_TYPE, ...) returned -1, {name:?} might not be a socket?"); errors = true; }, // ideally we'd check errno for EBADF or ENOTSOCK
+            ret => panic!("bug: getsockopt({fd} {name:?}, ...) returned {ret}, expected 0 (success) or -1 (see errno)"),
+        }
+
+        let mut accept = 0_u64;
+        let mut accept_len = core::mem::size_of_val(&accept) as _;
+        match unsafe { getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, NonNull::new(&mut accept).map(|p| p.cast()), &mut accept_len) } {
+            0 => {
+                assert!(accept_len as usize <= core::mem::size_of_val(&accept));
+                if accept == 0 {
+                    eprintln!("error: fd {fd} {name:?}: expected a socket with SO_ACCEPTCONN set, instead recieved an individual socket connection");
+                    errors = true;
+                }
+            },
+            -1  => { eprintln!("error: getsockopt({fd} {name:?}, SOL_SOCKET, SO_ACCEPTCONN, ...) returned -1, {name:?} might not be a socket?"); errors = true; }, // ideally we'd check errno for EBADF or ENOTSOCK
+            ret => panic!("bug: getsockopt({fd} {name:?}, ...) returned {ret}, expected 0 (success) or -1 (see errno)"),
+        }
+    }
+
+    if errors {
+        Err(())
+    } else {
+        Ok(fds.map(|fd| ManuallyDrop::new(unsafe { TcpListener::from_raw_fd(fd) })).collect::<Vec<_>>())
+    }
 }

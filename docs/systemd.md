@@ -31,7 +31,7 @@ Description=Example mmuhttpd service
 Requires=mmuhttpd.socket
 
 [Service]
-ExecStart=/home/deck/local/mmuhttpd/target/release/mmuhttpd --systemd /home/deck/local/mmuhttpd/demo
+ExecStart=/home/deck/local/mmuhttpd/target/release/mmuhttpd /home/deck/local/mmuhttpd/demo
 User=deck   # I can't even find the official documentation for this, but I've confirmed this causes mmuhttpd to run as `deck` instead of as `root`.
 Group=deck  # Appears redundant.  Testing was done by patching `mmuhttpd` to run `id`
 ```

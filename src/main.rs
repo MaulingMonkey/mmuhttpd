@@ -3,6 +3,7 @@
 mod browser;
 mod ext_slice;  use ext_slice::*;
 mod fs;
+mod libc;
 mod mime;
 mod response;
 mod run;
