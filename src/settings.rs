@@ -83,7 +83,7 @@ impl Settings {
             //  127.0.0.x   (linux)
             //  127.x.y.z   (windows / https://www.rfc-editor.org/rfc/rfc1122 )
             addrs: {
-                if addrs.is_empty() { addrs.push(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 99))) }
+                if addrs.is_empty() && listen.is_empty() { addrs.push(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 99))) }
                 addrs
             },
             port,
