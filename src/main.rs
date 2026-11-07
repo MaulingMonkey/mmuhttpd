@@ -1,7 +1,7 @@
 #![forbid(unsafe_op_in_unsafe_fn)]
 
 mod browser;
-mod ext_slice;  use ext_slice::*;
+mod slice;
 mod fs;
 mod libc;
 mod mime;

@@ -67,11 +67,11 @@ fn on_listener(settings: &'static Settings, listener: &'static TcpListener, auto
 fn on_connection(settings: &Settings, mut stream: TcpStream) {
     let mut header = [0u8; 8 * 1024]; // common limit per https://stackoverflow.com/a/60623751/953531
     let header = match read_header_discard_body(&mut stream, &mut header[..]) { Err(()) => return, Ok(h) => h };
-    let (request, headers) = header.split_once(b"\r\n").unwrap_or((header, b""));
-    let Some((method, after_method)) = request.split_once(b" ") else { return response::bad_request(&mut stream) };
-    let Some((path_search, version)) = after_method.split_once(b" ") else { return response::bad_request(&mut stream) };
+    let (request, headers) = slice::split_once(header, b"\r\n").unwrap_or((header, b""));
+    let Some((method, after_method)) = slice::split_once(request, b" ") else { return response::bad_request(&mut stream) };
+    let Some((path_search, version)) = slice::split_once(after_method, b" ") else { return response::bad_request(&mut stream) };
     if ![b"HTTP/1.0", b"HTTP/1.1"].iter().any(|v| &v[..] == version) { return response::http_version_not_supported(&mut stream) };
-    let (path, search) = path_search.split_at(path_search.find_window(b"?").unwrap_or(path_search.len()));
+    let (path, search) = path_search.split_at(slice::find_window(path_search, b"?").unwrap_or(path_search.len()));
     debug_assert!(search.is_empty() || search.starts_with(b"?"));
     let Ok(headers) = core::str::from_utf8(headers) else { return response::bad_request(&mut stream) };
     let headers = headers.split('\n').map(|h| h.trim_end());
