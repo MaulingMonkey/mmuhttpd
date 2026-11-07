@@ -1,6 +1,8 @@
 use std::process::{Command, Stdio};
 
 pub fn open_url(url: &str) {
+    assert!(url.starts_with("http://") || url.starts_with("https://"));
+
     let mut cmd;
     if cfg!(windows) {
         cmd = Command::new("cmd.exe");
