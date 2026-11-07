@@ -1,12 +1,50 @@
 use std::ffi::OsStr;
 use std::path::*;
 
+
+
+#[test] fn test_by_path() {
+    assert_eq!(by_path("a/b.zip"),  Some("application/zip"));
+    assert_eq!(by_path("a.zip"),    Some("application/zip"));
+    assert_eq!(by_path("zip"),      None); // an extensionless file named zip, not a file with an extension of zip
+    assert_eq!(by_path(".zip"),     None); // a dotfile named .zip, not a file with an extension of zip
+}
+
+/// Determine the [MIME](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types/Common_types) based on a path's extension.
+///
+/// ## Examples
+///
+/// ```
+/// assert_eq!(by_path("a/b.zip"),  Some("application/zip"));
+/// assert_eq!(by_path("a.zip"),    Some("application/zip"));
+/// assert_eq!(by_path("zip"),      None); // an extensionless file named zip, not a file with an extension of zip
+/// assert_eq!(by_path(".zip"),     None); // a dotfile named .zip, not a file with an extension of zip
+/// ```
 pub fn by_path(path: &(impl AsRef<Path> + ?Sized)) -> Option<&'static str> {
     let path = path.as_ref();
     let ext = path.extension()?;
     by_extension(ext)
 }
 
+
+
+#[test] fn test_by_extension() {
+    assert_eq!(by_extension("a.zip"),   None);
+    assert_eq!(by_extension("zip"),     Some("application/zip"));
+    assert_eq!(by_extension(".zip"),    Some("application/zip"));
+}
+
+/// Determine the [MIME](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types/Common_types) based on an extension.
+///
+/// Note that this will reject paths!
+///
+/// ## Examples
+///
+/// ```
+/// assert_eq!(by_extension("a.zip"),   None);
+/// assert_eq!(by_extension("zip"),     Some("application/zip"));
+/// assert_eq!(by_extension(".zip"),    Some("application/zip"));
+/// ```
 pub fn by_extension(ext: &(impl AsRef<OsStr> + ?Sized)) -> Option<&'static str> {
     let ext = ext.as_ref();
     let ext = ext.to_str()?;
