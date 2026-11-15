@@ -1,7 +1,6 @@
 use crate::*;
 
 use std::io::{Read, Write};
-use std::mem::ManuallyDrop;
 use std::net::*;
 use std::thread::JoinHandle;
 
@@ -14,7 +13,7 @@ pub fn run() {
     let mut joins = Vec::new();
     for addr in settings.addrs.iter().copied() {
         let listener = match settings.port {
-            Some(port) => match TcpListener::bind((addr, port.get())) {
+            Some(port) => match TcpListener2::bind((addr, port.get())) {
                 Ok(l) => l,
                 Err(err) => panic!("cannot open a TcpListener on port {port}: {err}"),
             },
@@ -23,7 +22,7 @@ pub fn run() {
                 loop {
                     port += 1;
                     assert!(port <= 9999, "cannot open a TcpListener on any port between 9000 ..= 9999");
-                    if let Ok(l) = TcpListener::bind((addr, port)) { break l }
+                    if let Ok(l) = TcpListener2::bind((addr, port)) { break l }
                 }
             }
         };
@@ -37,17 +36,14 @@ pub fn run() {
     for join in joins { join.join().unwrap() }
 }
 
-trait L : Send                          { fn as_ref(&self) -> &TcpListener; }
-impl L for TcpListener                  { fn as_ref(&self) -> &TcpListener { self } }
-impl L for ManuallyDrop<TcpListener>    { fn as_ref(&self) -> &TcpListener { self } }
-
-fn on_listener(settings: &'static Settings, listener: &'static TcpListener, auto_open: &mut bool) -> JoinHandle<()> {
-    let local = listener.as_ref().local_addr().expect("unable to determine TcpListener::local_addr");
+fn on_listener(settings: &'static Settings, listener: &'static TcpListener2, auto_open: &mut bool) -> JoinHandle<()> {
+    let local = listener.local_addr().expect("unable to determine TcpListener::local_addr");
     let (ip, port) = (local.ip(), local.port());
 
     let join_handle = std::thread::Builder::new().name(format!("listener {local}")).spawn(move || {
-        for connection in listener.as_ref().incoming() {
-            let connection = connection.expect("unable to accept incoming connection");
+        loop {
+            let connection = listener.accept();
+            let connection = connection.expect("unable to accept incoming connection").0;
             let _ = std::thread::Builder::new().name(format!("accepted connection")).spawn(move || on_connection(settings, connection));
         }
     }).expect("unable to spawn all listener threads");
