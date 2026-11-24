@@ -2,49 +2,49 @@ use crate::*;
 
 use std::io::{Read, Write};
 use std::net::*;
-use std::thread::JoinHandle;
+use std::thread::ScopedJoinHandle;
 
 
 
 pub fn run() {
-    let settings = &*Box::leak(Box::new(unsafe { Settings::from_env_or_die() }));
+    let mut settings = unsafe { Settings::from_env_or_die() };
+    let listeners = core::mem::take(&mut settings.listen);
     let mut auto_open = settings.open;
 
-    let mut joins = Vec::new();
-    for addr in settings.addrs.iter().copied() {
-        let listener = match settings.port {
-            Some(port) => match TcpListener2::bind((addr, port.get())) {
-                Ok(l) => l,
-                Err(err) => panic!("cannot open a TcpListener on port {port}: {err}"),
-            },
-            None => {
-                let mut port = 9000;
-                loop {
-                    port += 1;
-                    assert!(port <= 9999, "cannot open a TcpListener on any port between 9000 ..= 9999");
-                    if let Ok(l) = TcpListener2::bind((addr, port)) { break l }
+    std::thread::scope(|scope| {
+        for addr in settings.addrs.iter().copied() {
+            let listener = match settings.port {
+                Some(port) => match TcpListener2::bind((addr, port.get())) {
+                    Ok(l) => l,
+                    Err(err) => panic!("cannot open a TcpListener on port {port}: {err}"),
+                },
+                None => {
+                    let mut port = 9000;
+                    loop {
+                        port += 1;
+                        assert!(port <= 9999, "cannot open a TcpListener on any port between 9000 ..= 9999");
+                        if let Ok(l) = TcpListener2::bind((addr, port)) { break l }
+                    }
                 }
-            }
-        };
-        joins.push(on_listener(settings, &*Box::leak(Box::new(listener)), &mut auto_open));
-    }
+            };
+            on_listener(&scope, &settings, listener, &mut auto_open);
+        }
 
-    for listener in &settings.listen {
-        joins.push(on_listener(settings, &*Box::leak(Box::new(listener)), &mut auto_open));
-    }
-
-    for join in joins { join.join().unwrap() }
+        for listener in listeners {
+            on_listener(&scope, &settings, listener, &mut auto_open);
+        }
+    })
 }
 
-fn on_listener(settings: &'static Settings, listener: &'static TcpListener2, auto_open: &mut bool) -> JoinHandle<()> {
+fn on_listener<'t>(scope: &'t std::thread::Scope<'t, '_>, settings: &'t Settings, listener: TcpListener2, auto_open: &mut bool) -> ScopedJoinHandle<'t, ()> {
     let local = listener.local_addr().expect("unable to determine TcpListener::local_addr");
     let (ip, port) = (local.ip(), local.port());
 
-    let join_handle = std::thread::Builder::new().name(format!("listener {local}")).spawn(move || {
+    let join_handle = std::thread::Builder::new().name(format!("listener {local}")).spawn_scoped(scope, move || {
         loop {
             let connection = listener.accept();
             let connection = connection.expect("unable to accept incoming connection").0;
-            let _ = std::thread::Builder::new().name(format!("accepted connection")).spawn(move || on_connection(settings, connection));
+            let _ = std::thread::Builder::new().name(format!("accepted connection")).spawn_scoped(scope, move || on_connection(settings, connection));
         }
     }).expect("unable to spawn all listener threads");
 
